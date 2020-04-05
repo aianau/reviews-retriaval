@@ -1,1 +1,1 @@
-# reviews-retriaval
+# reviews-retrieval
