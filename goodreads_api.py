@@ -47,18 +47,20 @@ def retrieve_reviews_by_isbn(isbn, page=1, no_of_pages=1):
             json_ret.append(data)
 
     if page < no_of_pages:
+        # go recursive for next page
         json_ret += retrieve_reviews_by_isbn(isbn, page + 1, no_of_pages)
 
     return json_ret
 
 
-start_time = time.time()
-print('Getting reviews...')
-json_content = retrieve_reviews_by_isbn('9786068965055')
-print("Running time: %f seconds" % (time.time() - start_time))
+if __name__ == "__main__":
+    print('Getting reviews...')
+    start_time = time.time()
+    json_content = retrieve_reviews_by_isbn('9786068965055')
+    print("Running time: %f seconds" % (time.time() - start_time))
 
-# ~15-30 seconds for 10 FULL reviews
-# ~2 seconds for 10 partial reviews (300 characters each + ...more link)
+    # ~15-30 seconds for 10 FULL reviews
+    # ~2 seconds for 10 partial reviews (300 characters each + ...more link)
 
-with open('data_goodreads.json', 'w') as outfile:
-    json.dump(json_content, outfile)
+    with open('data_goodreads.json', 'w') as outfile:
+        json.dump(json_content, outfile)
