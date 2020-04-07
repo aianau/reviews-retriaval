@@ -1,7 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
-import json
-import time
+from flask import Flask, request
+from flask_restful import Api, Resource
+
+app = Flask(__name__)
+api = Api(app)
 
 
 class GoodReads:
@@ -53,17 +56,35 @@ class GoodReads:
 
         return json_ret
 
+    def retrieve_reviews_by_title(self, isbn, page=1, no_of_pages=1):
+        return "todo"
+
+
+class Review(Resource):
+    # noinspection PyMethodMayBeStatic
+    def get(self):
+        goodreads = GoodReads()
+
+        isbn = request.args.get('isbn')  # 9786068965055
+        title = request.args.get('title')
+
+        if isbn:
+            return goodreads.retrieve_reviews_by_isbn(isbn), 200
+        elif title:
+            return goodreads.retrieve_reviews_by_isbn(title), 200
+        else:
+            return "Pass arguments", 400
+
+
+api.add_resource(Review, "/review")
 
 if __name__ == "__main__":
-    goodreads = GoodReads()
-
-    print('Getting reviews...')
-    start_time = time.time()
-    json_content = goodreads.retrieve_reviews_by_isbn('9786068965055')
-    print("Running time: %f seconds" % (time.time() - start_time))
-
     # ~15-30 seconds for 10 FULL reviews
-    # ~2 seconds for 10 partial reviews (300 characters each + ...more link)
+    # ~2 seconds for 10 partial reviews (300 characters each + ...more link))
 
-    with open('data_goodreads.json', 'w') as outfile:
-        json.dump(json_content, outfile)
+    app.run(debug=True)
+
+    """
+     Use: localhost:5000/review?isbn=...
+          localhost:5000/review?title=...
+    """
