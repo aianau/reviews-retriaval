@@ -1,6 +1,7 @@
 import scrapy
 import json
 from scrapy.crawler import CrawlerProcess
+import sys
 
 class AmazonSpider(scrapy.Spider):
     name = 'amazon_search'
@@ -54,5 +55,6 @@ class AmazonSpider(scrapy.Spider):
 
 if __name__ == "__main__":
     process = CrawlerProcess()
-    process.crawl(AmazonSpider, 'Altered+Carbon')
+    
+    process.crawl(AmazonSpider, str(sys.argv[1]))
     process.start()
