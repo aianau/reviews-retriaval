@@ -4,6 +4,7 @@ from flask import Flask, request
 from flask_restful import Api, Resource
 from goodreads import client
 from goodreads.request import GoodreadsRequestException
+import config
 
 app = Flask(__name__)
 api = Api(app)
@@ -11,8 +12,8 @@ api = Api(app)
 
 class GoodReads:
     def __init__(self):
-        self.KEY = '6B2vETdsTz2n9nCibXafg'
-        self.SECRET = 'iLslkc3kgt6aBVOliKS5uBmy0JfUbzkZu1wYhgs'
+        self.KEY = config.api_key
+        self.SECRET = config.api_secret
 
     def retrieve_reviews_by_isbn(self, isbn, no_of_reviews=10):
         # get book's link using GoodReads api
@@ -25,8 +26,8 @@ class GoodReads:
 
     def retrieve_reviews_by_title(self, title, no_of_reviews=10):
         title = title.replace(" ", "+")
-        url = 'https://www.goodreads.com/search?q= &search_type=books'
-        url = url.replace(" ", title)
+        url = 'https://www.goodreads.com/search?q={title}&search_type=books'
+        url = url.replace("{title}", title)
 
         r = requests.get(url=url)
         if r.status_code == 200:
@@ -124,8 +125,8 @@ class Review(Resource):
         isbn = request.args.get('isbn')  # 9786068965055
         title = request.args.get('title')
         no_of_reviews = 10
-        if request.args.get('reviews') is not None:
-            no_of_reviews = int(request.args.get('reviews'))
+        if request.args.get('size') is not None:
+            no_of_reviews = int(request.args.get('size'))
 
         if isbn is not None:
             return goodreads.retrieve_reviews_by_isbn(isbn, no_of_reviews), 200
@@ -145,8 +146,3 @@ if __name__ == "__main__":
     # json_content = goodreads.retrieve_reviews_by_title('Harry Potter and the cursed child')
     # with open('data_goodreads.json', 'w') as outfile:
     #     json.dump(json_content, outfile)
-
-    """
-     Use: localhost:5000/review?isbn=...
-          localhost:5000/review?title=...
-    """
