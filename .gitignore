@@ -1,5 +1,5 @@
 # hide goodreads api key
-config.py
+.config.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
