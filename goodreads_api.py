@@ -2,6 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request
 from flask_restful import Api, Resource
+from goodreads import client
+from goodreads.request import GoodreadsRequestException
+import config
 
 app = Flask(__name__)
 api = Api(app)
@@ -9,55 +12,109 @@ api = Api(app)
 
 class GoodReads:
     def __init__(self):
-        self.URL = 'https://www.goodreads.com/api/reviews_widget_iframe'
+        self.KEY = config.api_key
+        self.SECRET = config.api_secret
 
-    def retrieve_reviews_by_isbn(self, isbn, page=1, no_of_pages=1):
-        json_ret = []
+    def retrieve_reviews_by_isbn(self, isbn, no_of_reviews=10):
+        # get book's link using GoodReads api
+        gc = client.GoodreadsClient(self.KEY, self.SECRET)
+        try:
+            url = gc.book(isbn=isbn).link
+            return self.retrieve_reviews(url, no_of_reviews)
+        except GoodreadsRequestException:
+            return "Isbn not found!"
 
-        params = {'isbn': isbn, 'page': page}
-        r = requests.get(url=self.URL, params=params)
+    def retrieve_reviews_by_title(self, title, no_of_reviews=10):
+        title = title.replace(" ", "+")
+        url = 'https://www.goodreads.com/search?q={title}&search_type=books'
+        url = url.replace("{title}", title)
 
+        r = requests.get(url=url)
         if r.status_code == 200:
             # parse the html response
             soup = BeautifulSoup(r.text, "html.parser")
 
-            # main div with reviews
-            div_container = soup.find_all("div", attrs={"class": "gr_review_container"})
-            for res in div_container:
-                data = {}
+            # get the url for book's review
+            check_search_result = soup.find("table", attrs={"class": "tableList"})
+            if check_search_result is not None:
+                review_url = 'https://www.goodreads.com/' + \
+                             check_search_result.find("tr").find("td").find("a")['href']
 
-                author = res.find("span", attrs={"class": "gr_review_by"}).find("a").text
-                data['author'] = author
+                # remove query string from url
+                poz = 0
+                for ch in review_url:
+                    if ch == '?':
+                        break
+                    poz += 1
+                review_url = review_url[0:poz]
 
-                date = res.find("span", attrs={"class": "gr_review_date"}).text.strip()
-                data['date'] = date
+                return self.retrieve_reviews(review_url, no_of_reviews)
+            else:
+                return "Title not found!"
 
-                # get the url for full review
-                review_url = res.find("div", attrs={"class": "gr_review_text"}).find("link")['href']
+    # noinspection PyMethodMayBeStatic
+    def retrieve_reviews(self, url, no_of_reviews):
+        json_ret = {}
 
-                r = requests.get(url=review_url)
-                if r.status_code == 200:
-                    soup = BeautifulSoup(r.text, "html.parser")
+        r = requests.get(url=url)
+        if r.status_code == 200:
+            # parse the html response
+            soup = BeautifulSoup(r.text, "html.parser")
 
-                    rating = soup.find("div", attrs={"class": "rating"}).find("span", attrs={"class": "value-title"})[
-                        'title']
-                    data['rating'] = rating
+            overall_rating = soup.find("span", itemprop="ratingValue").text.strip()
 
-                    description = soup.find("div",
-                                            attrs={"class": "reviewText mediumText description readable"}).text.strip()
-                    data['description'] = description
+            reviews = []
+            # main div with review
+            main_div = soup.find_all("div", attrs={"class": "left bodycol"})
+            for res in main_div:
+                author = res.find("span", itemprop="author").find("a")['title']
 
-                # add obtained data to json
-                json_ret.append(data)
+                date = res.find("a", attrs={"class": "reviewDate"}).text
 
-        if page < no_of_pages:
-            # go recursive for next page
-            json_ret += self.retrieve_reviews_by_isbn(isbn, page + 1, no_of_pages)
+                check_rating = res.find("span", attrs={"class": "staticStars notranslate"})
+                if check_rating is not None:
+                    rating = check_rating['title']
+                    if rating == 'it was amazing':
+                        rating = 5
+                    elif rating == 'really liked it':
+                        rating = 4
+                    elif rating == 'liked it':
+                        rating = 3
+                    elif rating == 'it was ok':
+                        rating = 2
+                    else:
+                        rating = 1
+                else:
+                    rating = "Not available"
+
+                check_description = res.find("div", attrs={"class": "reviewText stacked"})
+                if check_description is not None:
+                    descriptions = check_description.find("span").find_all("span")
+                    description = descriptions[0].text
+                    for desc in descriptions:
+                        description = desc.text
+                else:
+                    description = "Not available"
+
+                review = dict({
+                    'author': author,
+                    'date': date,
+                    'rating': rating,
+                    'description': description
+                })
+
+                reviews.append(review)
+
+                if len(reviews) == no_of_reviews:
+                    break
+
+            # add obtained data to json
+            json_ret = dict({
+                'overall_rating': overall_rating,
+                'reviews': reviews
+            })
 
         return json_ret
-
-    def retrieve_reviews_by_title(self, isbn, page=1, no_of_pages=1):
-        return "todo"
 
 
 class Review(Resource):
@@ -67,11 +124,14 @@ class Review(Resource):
 
         isbn = request.args.get('isbn')  # 9786068965055
         title = request.args.get('title')
+        no_of_reviews = 10
+        if request.args.get('size') is not None:
+            no_of_reviews = int(request.args.get('size'))
 
-        if isbn:
-            return goodreads.retrieve_reviews_by_isbn(isbn), 200
-        elif title:
-            return goodreads.retrieve_reviews_by_isbn(title), 200
+        if isbn is not None:
+            return goodreads.retrieve_reviews_by_isbn(isbn, no_of_reviews), 200
+        elif title is not None:
+            return goodreads.retrieve_reviews_by_title(title, no_of_reviews), 200
         else:
             return "Pass arguments", 400
 
@@ -79,12 +139,10 @@ class Review(Resource):
 api.add_resource(Review, "/review")
 
 if __name__ == "__main__":
-    # ~15-30 seconds for 10 FULL reviews
-    # ~2 seconds for 10 partial reviews (300 characters each + ...more link))
-
     app.run(debug=True)
 
-    """
-     Use: localhost:5000/review?isbn=...
-          localhost:5000/review?title=...
-    """
+    # import json
+    # goodreads = GoodReads()
+    # json_content = goodreads.retrieve_reviews_by_title('Harry Potter and the cursed child')
+    # with open('data_goodreads.json', 'w') as outfile:
+    #     json.dump(json_content, outfile)
