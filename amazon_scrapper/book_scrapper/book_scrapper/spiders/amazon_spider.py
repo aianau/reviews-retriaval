@@ -5,8 +5,9 @@ import json
 
 class AmazonSpiderSpider(scrapy.Spider):
     name = 'amazon_spider'
-    start_urls = ['https://www.amazon.com/s?k=shogun+book']
-    data = {"reviews":[], "succes" : True}
+    title = 'shogun+book'
+    start_urls = [f'https://www.amazon.com/s?k={title}']
+    data = {"reviews":[], "success" : True}
     current_callbacks = 0
     total_callbacks = 5
 
@@ -46,8 +47,8 @@ class AmazonSpiderSpider(scrapy.Spider):
             self.data['reviews'].append(review)
         if(self.data['reviews'] == [] and self.current_callbacks < self.total_callbacks):
             self.current_callbacks = self.current_callbacks + 1
-            self.data['succes'] = False
-            yield response.follow("https://www.amazon.com/s?k=Altered+Carbon", callback=self.parse)
+            self.data['success'] = False
+            yield response.follow(f'https://www.amazon.com/s?k={self.title}', callback=self.parse)
         
         with open('data_amazon.json', 'w') as json_file:
             json.dump(self.data, json_file, indent=4)
