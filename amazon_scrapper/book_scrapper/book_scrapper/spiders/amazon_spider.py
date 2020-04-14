@@ -1,0 +1,55 @@
+# -*- coding: utf-8 -*-
+import scrapy
+from ..items import BookScrapperItem
+import json
+
+class AmazonSpiderSpider(scrapy.Spider):
+    name = 'amazon_spider'
+    start_urls = ['https://www.amazon.com/s?k=shogun+book']
+    data = {"reviews":[], "succes" : True}
+    current_callbacks = 0
+    total_callbacks = 5
+
+    def parse(self, response):
+       
+
+        items = BookScrapperItem()
+
+        product_id = response.css('.s-result-list').css('div.s-result-item::attr(data-asin)').extract()
+        
+        # items['product_id'] = product_id
+        # yield items
+
+        yield response.follow(f'https://www.amazon.com/dp/{product_id[0]}', callback=self.product_parse)
+       
+
+
+    
+    def product_parse(self, response):
+        product_review = response.css('#acrPopover').css('::attr(title)').get()
+        self.data['total_product_review'] = product_review
+        
+        ratings = response.css('.review-rating>span::text').extract()
+        titles = response.css('.review-title>span::text').extract()   
+        authors = response.css('.a-profile-name::text').extract()
+        dates = response.css('.review-date::text').extract() 
+        review_descriptions = response.css('.review-text-content>span').extract()
+        
+        for i in range(0, len(ratings)):
+            review = dict({
+                'title' : titles[i],
+                'author' : authors[i],
+                'date' : dates[i],
+                'rating' : ratings[i],
+                'content' : review_descriptions[i].replace("<br>", " ").replace("<span>", "")
+            })
+            self.data['reviews'].append(review)
+        if(self.data['reviews'] == [] and self.current_callbacks < self.total_callbacks):
+            self.current_callbacks = self.current_callbacks + 1
+            self.data['succes'] = False
+            yield response.follow("https://www.amazon.com/s?k=Altered+Carbon", callback=self.parse)
+        
+        with open('data_amazon.json', 'w') as json_file:
+            json.dump(self.data, json_file, indent=4)
+        
+        
