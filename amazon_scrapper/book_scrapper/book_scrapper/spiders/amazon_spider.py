@@ -5,12 +5,15 @@ import json
 
 class AmazonSpiderSpider(scrapy.Spider):
     name = 'amazon_spider'
-    title = 'shogun+book'
-    start_urls = [f'https://www.amazon.com/s?k={title}']
+
     data = {"reviews":[], "success" : True}
     current_callbacks = 0
     total_callbacks = 5
 
+   
+    def start_requests(self):
+        yield scrapy.Request(f'https://www.amazon.com/s?k={self.title}')
+    
     def parse(self, response):
        
         product_id = response.css('.s-result-list').css('div.s-result-item::attr(data-asin)').extract()
@@ -46,6 +49,7 @@ class AmazonSpiderSpider(scrapy.Spider):
             self.data['success'] = False
             yield response.follow(f'https://www.amazon.com/s?k={self.title}', callback=self.parse)
         
+        # if i want to use item output
         # items['review_title'] = titles
         # items['review_rating'] = ratings
         # items['review_author'] = authors
