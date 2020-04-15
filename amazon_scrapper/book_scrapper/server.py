@@ -18,8 +18,8 @@ def get_data(title):
     with open("data_amazon.json") as items_file:
         data = json.load(items_file)
 
-    response = {'message': data}
-    response_pickled = jsonpickle.encode(response)
+    
+    response_pickled = jsonpickle.encode(data)
 
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
