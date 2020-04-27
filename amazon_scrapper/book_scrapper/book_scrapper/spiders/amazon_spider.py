@@ -10,7 +10,8 @@ class AmazonSpiderSpider(scrapy.Spider):
     current_callbacks = 0
     total_callbacks = 5
 
-   
+    
+
     def start_requests(self):
         yield scrapy.Request(f'https://www.amazon.com/s?k={self.title}')
     
