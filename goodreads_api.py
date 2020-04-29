@@ -1,9 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, request
-from flask_restful import Api, Resource
 from goodreads import client
 from goodreads.request import GoodreadsRequestException
+from flask import Flask, request, Response, render_template
+import jsonpickle
+import json
+import subprocess
+from flask_restful import Api, Resource
 import config
 
 app = Flask(__name__)
@@ -35,10 +38,12 @@ class GoodReads:
             soup = BeautifulSoup(r.text, "html.parser")
 
             # get the url for book's review
-            check_search_result = soup.find("table", attrs={"class": "tableList"})
+            check_search_result = soup.find(
+                "table", attrs={"class": "tableList"})
             if check_search_result is not None:
                 review_url = 'https://www.goodreads.com/' + \
-                             check_search_result.find("tr").find("td").find("a")['href']
+                             check_search_result.find("tr").find(
+                                 "td").find("a")['href']
 
                 # remove query string from url
                 poz = 0
@@ -61,7 +66,8 @@ class GoodReads:
             # parse the html response
             soup = BeautifulSoup(r.text, "html.parser")
 
-            overall_rating = soup.find("span", itemprop="ratingValue").text.strip()
+            overall_rating = soup.find(
+                "span", itemprop="ratingValue").text.strip()
 
             reviews = []
             # main div with review
@@ -71,7 +77,8 @@ class GoodReads:
 
                 date = res.find("a", attrs={"class": "reviewDate"}).text
 
-                check_rating = res.find("span", attrs={"class": "staticStars notranslate"})
+                check_rating = res.find(
+                    "span", attrs={"class": "staticStars notranslate"})
                 if check_rating is not None:
                     rating = check_rating['title']
                     if rating == 'it was amazing':
@@ -87,9 +94,11 @@ class GoodReads:
                 else:
                     rating = "Not available"
 
-                check_description = res.find("div", attrs={"class": "reviewText stacked"})
+                check_description = res.find(
+                    "div", attrs={"class": "reviewText stacked"})
                 if check_description is not None:
-                    descriptions = check_description.find("span").find_all("span")
+                    descriptions = check_description.find(
+                        "span").find_all("span")
                     description = descriptions[0].text
                     for desc in descriptions:
                         description = desc.text
@@ -136,7 +145,24 @@ class Review(Resource):
             return "Pass arguments", 400
 
 
-api.add_resource(Review, "/review")
+api.add_resource(Review, "/review/goodreads")
+
+
+class AmazonReview(Resource):
+    def get(self):
+        title = request.args.get('title')
+        spider_name = "amazon_spider"
+        subprocess.check_output(
+            ['scrapy', 'crawl', spider_name, '-a', f'title={title}'])
+        with open("data_amazon.json") as items_file:
+            data = json.load(items_file)
+
+        response_pickled = jsonpickle.encode(data)
+
+        return Response(response=response_pickled, status=200, mimetype="application/json")
+
+
+api.add_resource(AmazonReview, "/review/amazon")
 
 if __name__ == "__main__":
     app.run(debug=True)
