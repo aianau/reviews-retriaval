@@ -3,7 +3,12 @@
 Hosted on: http://stefanbeleuz.pythonanywhere.com/
 
      Use: 
-     http://stefanbeleuz.pythonanywhere.com/review?isbn=...&size=...
-     http://stefanbeleuz.pythonanywhere.com/review?title=...&size=...
+     - for goodreads:
+          http://stefanbeleuz.pythonanywhere.com/review/goodreads?isbn={isbn}&size={size}
+          http://stefanbeleuz.pythonanywhere.com/review/goodreads?title={title}&size={size}
+     
+     - for amazon (soon):
+          http://stefanbeleuz.pythonanywhere.com/review/amazon?title={title} example ?title=altered+carbon)
+     
      
      If parameter 'size' is missing, the default number of reviews retrieved will be 10.
