@@ -7,7 +7,7 @@ Hosted on: http://stefanbeleuz.pythonanywhere.com/
           http://stefanbeleuz.pythonanywhere.com/review/goodreads?isbn={isbn}&size={size}
           http://stefanbeleuz.pythonanywhere.com/review/goodreads?title={title}&size={size}
      
-     - for amazon:
+     - for amazon (soon):
           http://stefanbeleuz.pythonanywhere.com/review/amazon?title={title} example ?title=altered+carbon)
      
      
