@@ -16,41 +16,59 @@ class GoodReads:
         self.SECRET = config.api_secret
 
     def retrieve_reviews_by_isbn(self, isbn, no_of_reviews=10):
+        # isbn is usually 13 characters long (10, before 2007)
+        if len(isbn) != 10 and len(isbn) != 13:
+            return dict({'error': 'Incorrect isbn!'})
+
         # get book's link using GoodReads api
         gc = client.GoodreadsClient(self.KEY, self.SECRET)
         try:
             url = gc.book(isbn=isbn).link
             return self.retrieve_reviews(url, no_of_reviews)
         except GoodreadsRequestException:
-            return "Isbn not found!"
+            return dict({'error': 'Isbn not found!'})
 
     def retrieve_reviews_by_title(self, title, no_of_reviews=10):
-        title = title.replace(" ", "+")
+        title = title.replace(' ', '+')
         url = 'https://www.goodreads.com/search?q={title}&search_type=books'
-        url = url.replace("{title}", title)
+        url = url.replace('{title}', title)
 
         r = requests.get(url=url)
         if r.status_code == 200:
             # parse the html response
-            soup = BeautifulSoup(r.text, "html.parser")
+            soup = BeautifulSoup(r.text, 'html.parser')
 
-            # get the url for book's review
-            check_search_result = soup.find("table", attrs={"class": "tableList"})
+            check_search_result = soup.find('table', attrs={'class': 'tableList'})
             if check_search_result is not None:
-                review_url = 'https://www.goodreads.com/' + \
-                             check_search_result.find("tr").find("td").find("a")['href']
+                # check first page of books, for the first one with matching title
+                found_books = check_search_result.find_all('tr')
+                for found_book in found_books:
+                    found_title = found_book.find('td').find('a')['title']
+                    if found_title == title:
+                        review_url = 'https://www.goodreads.com/' + found_book.find('td').find('a')['href']
+                        # remove query string from url
+                        index = 0
+                        for ch in review_url:
+                            if ch == '?':
+                                break
+                            index += 1
+                        review_url = review_url[0:index]
 
-                # remove query string from url
-                poz = 0
+                        return self.retrieve_reviews(review_url, no_of_reviews)
+
+                # if a perfect match is not found, return the first match
+                review_url = 'https://www.goodreads.com/' + check_search_result.find('tr').find('td').find('a')['href']
+                index = 0
                 for ch in review_url:
                     if ch == '?':
                         break
-                    poz += 1
-                review_url = review_url[0:poz]
+                    index += 1
+                review_url = review_url[0:index]
 
                 return self.retrieve_reviews(review_url, no_of_reviews)
+
             else:
-                return "Title not found!"
+                return dict({'error': 'Title not found!'})
 
     # noinspection PyMethodMayBeStatic
     def retrieve_reviews(self, url, no_of_reviews):
@@ -59,19 +77,19 @@ class GoodReads:
         r = requests.get(url=url)
         if r.status_code == 200:
             # parse the html response
-            soup = BeautifulSoup(r.text, "html.parser")
+            soup = BeautifulSoup(r.text, 'html.parser')
 
-            overall_rating = soup.find("span", itemprop="ratingValue").text.strip()
+            overall_rating = soup.find('span', itemprop='ratingValue').text.strip()
 
             reviews = []
             # main div with review
-            main_div = soup.find_all("div", attrs={"class": "left bodycol"})
+            main_div = soup.find_all('div', attrs={'class': 'left bodycol'})
             for res in main_div:
-                author = res.find("span", itemprop="author").find("a")['title']
+                author = res.find('span', itemprop='author').find('a')['title']
 
-                date = res.find("a", attrs={"class": "reviewDate"}).text
+                date = res.find('a', attrs={'class': 'reviewDate'}).text
 
-                check_rating = res.find("span", attrs={"class": "staticStars notranslate"})
+                check_rating = res.find('span', attrs={'class': 'staticStars notranslate'})
                 if check_rating is not None:
                     rating = check_rating['title']
                     if rating == 'it was amazing':
@@ -85,16 +103,16 @@ class GoodReads:
                     else:
                         rating = 1
                 else:
-                    rating = "Not available"
+                    rating = 'Not available'
 
-                check_description = res.find("div", attrs={"class": "reviewText stacked"})
+                check_description = res.find('div', attrs={'class': 'reviewText stacked'})
                 if check_description is not None:
-                    descriptions = check_description.find("span").find_all("span")
+                    descriptions = check_description.find('span').find_all('span')
                     description = descriptions[0].text
                     for desc in descriptions:
                         description = desc.text
                 else:
-                    description = "Not available"
+                    description = 'Not available'
 
                 review = dict({
                     'author': author,
@@ -122,7 +140,7 @@ class Review(Resource):
     def get(self):
         goodreads = GoodReads()
 
-        isbn = request.args.get('isbn')  # 9786068965055
+        isbn = request.args.get('isbn')
         title = request.args.get('title')
         no_of_reviews = 10
         if request.args.get('size') is not None:
@@ -133,16 +151,10 @@ class Review(Resource):
         elif title is not None:
             return goodreads.retrieve_reviews_by_title(title, no_of_reviews), 200
         else:
-            return "Pass arguments", 400
+            return 400
 
 
-api.add_resource(Review, "/review")
+api.add_resource(Review, '/review/goodreads')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
-
-    # import json
-    # goodreads = GoodReads()
-    # json_content = goodreads.retrieve_reviews_by_title('Harry Potter and the cursed child')
-    # with open('data_goodreads.json', 'w') as outfile:
-    #     json.dump(json_content, outfile)
