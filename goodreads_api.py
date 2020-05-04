@@ -151,7 +151,7 @@ class Review(Resource):
         elif title is not None:
             return goodreads.retrieve_reviews_by_title(title, no_of_reviews), 200
         else:
-            return 400
+            return dict({'error': 'Pass arguments!'}), 400
 
 
 api.add_resource(Review, '/review/goodreads')
