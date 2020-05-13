@@ -3,12 +3,23 @@ from bs4 import BeautifulSoup
 from goodreads import client
 from goodreads.request import GoodreadsRequestException
 import config
+import xml.etree.ElementTree as ET
 
 
 class GoodReads:
     def __init__(self):
         self.KEY = config.api_key
         self.SECRET = config.api_secret
+
+    def get_title_from_isbn(self, isbn):
+        title = ""
+        url = 'https://www.goodreads.com/book/isbn/{isbn}?format=xml&key='+self.KEY
+        url = url.replace("{isbn}", isbn)
+        r = requests.get(url=url)
+        if r.status_code == 200:
+            root = ET.fromstring(r.text)
+            title = root.find('book').find('title').text
+        return title
 
     def retrieve_reviews_by_isbn(self, isbn, no_of_reviews=10):
         # get book's link using GoodReads api
@@ -116,3 +127,8 @@ class GoodReads:
             })
 
         return json_ret
+
+
+if __name__ == "__main__":
+    # goodreads = GoodReads()
+    # goodreads.get_title_from_isbn('9786066869287')
